@@ -62,28 +62,25 @@ class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    // Invisible full-screen tap target — most reliable on mobile
-    const hitArea = this.add.rectangle(cx, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0)
-      .setDepth(50)
-      .setInteractive();
-
+    // Accept the first deliberate tap anywhere on screen.
+    // The 300 ms guard ignores any phantom touch that fires when
+    // the scene activates (common on iOS/Android).
     let started = false;
-    const startGame = () => {
-      if (started) return;
+    const readyAt = this.time.now + 300;
+    this.input.on('pointerdown', () => {
+      if (started || this.time.now < readyAt) return;
       started = true;
       this.scene.start('Game', { level: 1 });
-    };
+    });
 
-    hitArea.on('pointerdown', startGame);
-
-    // Play button (visual only — tap anywhere works)
+    // Play button (visual indicator — the whole screen is tappable)
     const btn = this.add.text(cx, 490, '[ TAP TO PLAY ]', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '14px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(51);
+    }).setOrigin(0.5);
 
     // Blink
     this.tweens.add({
