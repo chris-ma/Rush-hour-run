@@ -49,6 +49,12 @@
       min-height: 1.4em;
     }
 
+    /* ── Button pulse ────────────────────────────────── */
+    @keyframes rhr-pulse {
+      0%, 100% { transform: scale(1);     box-shadow: 0 0 0px rgba(255,255,255,0); }
+      50%       { transform: scale(1.06); box-shadow: 0 0 12px rgba(255,255,255,0.35); }
+    }
+
     /* ── Shared button style ─────────────────────────────── */
     .rhr-btn {
       font-family: 'Press Start 2P', monospace;
@@ -61,9 +67,10 @@
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       letter-spacing: 1px;
+      animation: rhr-pulse 1.4s ease-in-out infinite;
     }
-    .rhr-btn:active { background: #333340; }
-    .rhr-btn.dim { color: #aaaaaa; border-color: rgba(170,170,170,0.4); }
+    .rhr-btn:active { background: #333340; animation: none; transform: scale(0.97); }
+    .rhr-btn.dim { color: #aaaaaa; border-color: rgba(170,170,170,0.4); animation: none; }
 
     #html-menu .hint {
       font-family: 'Press Start 2P', monospace;

@@ -8,22 +8,19 @@ class GameScene extends Phaser.Scene {
     this.playing      = false;
     this.ended        = false;
     this.npcs         = [];
-
-    // Joystick state
-    this.joyActive    = false;
-    this.joyPtrId     = null;
-    this.joyOrigin    = { x: 0, y: 0 };
-    this.joyVector    = { x: 0, y: 0 };
-
     this.timeLeft     = 0;
     this.timerEvent   = null;
+    this._urgentTween = null;
+    this.trainContainer = null;
+    this.trainGfx       = null;
   }
 
   // ─── create ────────────────────────────────────────────────────────────────
 
   create() {
     this._drawBackground();
-    this._createMarkers();
+    this._createGates();
+    this._createTrain();
     this._createPlayer();
     this._spawnNPCs();
     this._createHUD();
@@ -35,53 +32,45 @@ class GameScene extends Phaser.Scene {
   // ─── background ────────────────────────────────────────────────────────────
 
   _drawBackground() {
-    const { WIDTH, PLAY_H, HEIGHT, JOY_ZONE_Y,
-            COL_ASPHALT, COL_PAVEMENT, COL_KERB, COL_MARKING, COL_JOY_ZONE } = C;
+    const { WIDTH, PLAY_H, HEIGHT, JOY_ZONE_Y } = C;
     const g = this.add.graphics();
 
-    // Pavement strips (left & right)
-    g.fillStyle(COL_PAVEMENT);
-    g.fillRect(0, 0, 72, PLAY_H);
-    g.fillRect(WIDTH - 72, 0, 72, PLAY_H);
+    // Platform floor — concrete
+    g.fillStyle(0x7a7a6e);
+    g.fillRect(0, 0, WIDTH, PLAY_H);
 
-    // Asphalt road (centre)
-    g.fillStyle(COL_ASPHALT);
-    g.fillRect(72, 0, WIDTH - 144, PLAY_H);
+    // Tile grid
+    g.lineStyle(1, 0x666660, 0.5);
+    for (let x = 0; x <= WIDTH; x += 40)  g.lineBetween(x, 0, x, PLAY_H);
+    for (let y = 0; y <= PLAY_H; y += 40) g.lineBetween(0, y, WIDTH, y);
 
-    // Kerb edges
-    g.fillStyle(COL_KERB);
-    g.fillRect(68, 0, 4, PLAY_H);
-    g.fillRect(WIDTH - 72, 0, 4, PLAY_H);
-
-    // Centre road dashes
-    g.fillStyle(COL_MARKING);
-    for (let y = 0; y < PLAY_H; y += 48) {
-      g.fillRect(WIDTH / 2 - 2, y, 4, 24);
+    // Side columns
+    for (let y = 100; y < PLAY_H - 80; y += 150) {
+      g.fillStyle(0x5a5a52);
+      g.fillRect(0,         y, 28, 55);
+      g.fillRect(WIDTH - 28, y, 28, 55);
+      g.fillStyle(0x888880);
+      g.fillRect(2,         y + 2, 24, 51);
+      g.fillRect(WIDTH - 26, y + 2, 24, 51);
     }
 
-    // Pavement cracks (decorative)
-    g.lineStyle(1, 0x4a4a44);
-    const rng = new Phaser.Math.RandomDataGenerator(['rhr-cracks']);
-    for (let i = 0; i < 12; i++) {
-      const cx = rng.between(4, 60);
-      const cy = rng.between(10, PLAY_H - 10);
-      g.lineBetween(cx, cy, cx + rng.between(-10, 10), cy + rng.between(-10, 10));
-    }
-    for (let i = 0; i < 12; i++) {
-      const cx = rng.between(WIDTH - 68, WIDTH - 4);
-      const cy = rng.between(10, PLAY_H - 10);
-      g.lineBetween(cx, cy, cx + rng.between(-10, 10), cy + rng.between(-10, 10));
-    }
+    // Yellow platform-edge safety stripe (bottom)
+    g.fillStyle(0xeecc44);
+    g.fillRect(0, PLAY_H - 20, WIDTH, 8);
+    g.fillStyle(0x222222);
+    g.fillRect(0, PLAY_H - 12, WIDTH, 12);
+
+    // Blue overhead sign strip at very top
+    g.fillStyle(0x1a3a88);
+    g.fillRect(0, 0, WIDTH, 10);
 
     // Joystick zone
-    g.fillStyle(COL_JOY_ZONE);
+    g.fillStyle(0x16161a);
     g.fillRect(0, JOY_ZONE_Y, WIDTH, HEIGHT - JOY_ZONE_Y);
 
-    // Separator line
     g.lineStyle(2, 0x3a3a40);
     g.lineBetween(0, JOY_ZONE_Y, WIDTH, JOY_ZONE_Y);
 
-    // "MOVE" label in joystick zone
     this.add.text(WIDTH / 2, JOY_ZONE_Y + 24, 'DRAG HERE TO MOVE', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
@@ -89,40 +78,118 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  // ─── markers ───────────────────────────────────────────────────────────────
+  // ─── station gates (Point A) ───────────────────────────────────────────────
 
-  _createMarkers() {
-    const { PA, PB } = C;
+  _createGates() {
+    const { PA, WIDTH } = C;
+    const g = this.add.graphics().setDepth(1);
 
-    // Point A — home
-    const mA = this.add.image(PA.x, PA.y, 'marker_a').setDepth(0);
-    this.add.text(PA.x, PA.y - 1, 'HOME', {
+    // Barrier beam
+    g.fillStyle(0xcccc88);
+    g.fillRect(PA.x - 130, PA.y - 5, 260, 10);
+
+    // Posts
+    g.fillStyle(0xaaaaaa);
+    [-130, -44, 44, 130].forEach(ox => {
+      g.fillRect(PA.x + ox - 5, PA.y - 24, 10, 48);
+    });
+
+    // Gate opening in centre
+    g.fillStyle(0x333328);
+    g.fillRect(PA.x - 16, PA.y - 5, 32, 10);
+
+    // Arrow pointing up (toward train)
+    g.fillStyle(0x22ee66);
+    g.fillTriangle(PA.x, PA.y - 38, PA.x - 10, PA.y - 28, PA.x + 10, PA.y - 28);
+
+    this.add.text(PA.x, PA.y + 26, 'PLATFORM GATES', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
-      color: '#22ee66',
+      color: '#eecc44',
       stroke: '#000',
       strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(1);
+    }).setOrigin(0.5).setDepth(2);
+  }
 
-    // Point B — office
-    const mB = this.add.image(PB.x, PB.y, 'marker_b').setDepth(0);
-    this.add.text(PB.x, PB.y - 1, 'WORK', {
+  // ─── train (Point B) ───────────────────────────────────────────────────────
+
+  _createTrain() {
+    const { PB } = C;
+
+    this.trainContainer = this.add.container(0, 0).setDepth(3);
+
+    this.trainGfx = this.add.graphics();
+    this._drawTrainGraphics(true);
+
+    this.boardText = this.add.text(PB.x, 84, 'BOARD HERE', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
-      color: '#44aaff',
+      color: '#ffcc44',
       stroke: '#000',
       strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(1);
+    }).setOrigin(0.5);
 
-    // Pulse tween on goal marker
     this.tweens.add({
-      targets: mB,
-      alpha: 0.5,
-      duration: 700,
+      targets: this.boardText,
+      alpha: 0.3,
+      duration: 500,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+
+    this.trainContainer.add([this.trainGfx, this.boardText]);
+  }
+
+  _drawTrainGraphics(doorOpen) {
+    const { WIDTH, PB } = C;
+    const g   = this.trainGfx;
+    const tx  = 10;
+    const ty  = 5;
+    const tw  = WIDTH - 20;
+    const th  = 70;
+    const dw  = 48;
+    const dx  = tx + (tw - dw) / 2;   // door x
+
+    g.clear();
+
+    // Train body
+    g.fillStyle(0x1a4088);
+    g.fillRect(tx, ty, tw, th);
+
+    // Decorative stripe
+    g.fillStyle(0xddbb88);
+    g.fillRect(tx, ty + 22, tw, 7);
+
+    // Windows — left of door
+    g.fillStyle(0x99ddff, 0.85);
+    for (let wx = tx + 14; wx < dx - 8; wx += 52) {
+      g.fillRect(wx, ty + 8, 34, 16);
+    }
+    // Windows — right of door
+    for (let wx = dx + dw + 8; wx < tx + tw - 14; wx += 52) {
+      g.fillRect(wx, ty + 8, 34, 16);
+    }
+
+    // Door
+    if (doorOpen) {
+      g.fillStyle(0x080818);
+      g.fillRect(dx, ty, dw, th);
+      g.lineStyle(3, 0xffcc44, 1);
+      g.strokeRect(dx, ty, dw, th);
+      // Step glow
+      g.fillStyle(0xffcc44, 0.45);
+      g.fillRect(dx, ty + th - 10, dw, 10);
+    } else {
+      g.fillStyle(0x163070);
+      g.fillRect(dx, ty, dw, th);
+      g.lineStyle(2, 0x2255aa, 1);
+      g.lineBetween(dx + dw / 2, ty, dx + dw / 2, ty + th);
+    }
+
+    // Train outline
+    g.lineStyle(2, 0x0a2055, 1);
+    g.strokeRect(tx, ty, tw, th);
   }
 
   // ─── player ────────────────────────────────────────────────────────────────
@@ -137,7 +204,7 @@ class GameScene extends Phaser.Scene {
 
   _spawnNPCs() {
     const count = C.NPC_COUNT_BASE + (this.currentLevel - 1) * C.NPC_COUNT_PER_LEVEL;
-    const speed = C.NPC_SPEED_BASE   + (this.currentLevel - 1) * C.NPC_SPEED_PER_LEVEL;
+    const speed = C.NPC_SPEED_BASE + (this.currentLevel - 1) * C.NPC_SPEED_PER_LEVEL;
 
     for (let i = 0; i < count; i++) {
       const pos  = this._safeSpawnPos();
@@ -149,14 +216,13 @@ class GameScene extends Phaser.Scene {
         .setDepth(4);
 
       const variation = 1 + (Math.random() * 2 - 1) * C.NPC_SPEED_VAR;
-      npc.npcType  = type;
-      npc.speed    = speed * variation;
+      npc.npcType     = type;
+      npc.speed       = speed * variation;
       npc.changeTimer = 0;
 
       const angle = Math.random() * Math.PI * 2;
 
       if (type === 'B') {
-        // Pacer — single axis only
         if (Math.random() < 0.5) {
           npc.vx = (Math.random() < 0.5 ? 1 : -1) * npc.speed;
           npc.vy = 0;
@@ -167,9 +233,7 @@ class GameScene extends Phaser.Scene {
       } else {
         npc.vx = Math.cos(angle) * npc.speed;
         npc.vy = Math.sin(angle) * npc.speed;
-        if (type === 'C') {
-          npc.changeTimer = 1500 + Math.random() * 2000;
-        }
+        if (type === 'C') npc.changeTimer = 1500 + Math.random() * 2000;
       }
 
       this.npcs.push(npc);
@@ -189,8 +253,8 @@ class GameScene extends Phaser.Scene {
     const margin = NPC_R * SPRITE_SCALE;
 
     do {
-      x = Phaser.Math.Between(margin + 72, WIDTH - margin - 72);
-      y = Phaser.Math.Between(margin + 10, PLAY_H - margin - 10);
+      x = Phaser.Math.Between(margin + 10, WIDTH - margin - 10);
+      y = Phaser.Math.Between(margin + 90, PLAY_H - margin - 30);
       attempts++;
     } while (
       attempts < 80 &&
@@ -207,27 +271,35 @@ class GameScene extends Phaser.Scene {
     const { WIDTH, TIMER_BASE, TIMER_DEC, TIMER_MIN } = C;
     this.timeLeft = Math.max(TIMER_MIN, TIMER_BASE - (this.currentLevel - 1) * TIMER_DEC);
 
-    // Level label
-    this.add.text(10, 10, `LEVEL ${this.currentLevel}`, {
+    // "Train leaves in" label — top-left
+    this.add.text(10, 8, 'TRAIN LEAVES IN', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '6px',
+      color: '#ffaa22',
+      stroke: '#000',
+      strokeThickness: 2,
+    }).setDepth(10);
+
+    this.timerText = this.add.text(10, 22, this._fmtTime(this.timeLeft), {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '20px',
+      color: '#ffffff',
+      stroke: '#000',
+      strokeThickness: 4,
+    }).setOrigin(0, 0).setDepth(10);
+
+    // Level — top-right
+    this.add.text(WIDTH - 10, 10, `LEVEL ${this.currentLevel}`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '11px',
       color: '#eecc44',
       stroke: '#000',
       strokeThickness: 3,
-    }).setDepth(10);
-
-    // Timer
-    this.timerText = this.add.text(WIDTH - 10, 10, this._fmtTime(this.timeLeft), {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000',
-      strokeThickness: 4,
     }).setOrigin(1, 0).setDepth(10);
   }
 
   _fmtTime(s) {
-    const m = Math.floor(s / 60);
+    const m   = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${String(sec).padStart(2, '0')}`;
   }
@@ -256,7 +328,6 @@ class GameScene extends Phaser.Scene {
     this.joyBaseGfx = this.add.graphics().setDepth(20);
     this.joyKnobGfx = this.add.graphics().setDepth(21);
     this._hideJoystick();
-    // Touch input handled by native DOM events in index.html via window.RHR_joy
     if (window.RHR_joy) {
       window.RHR_joy.active = false;
       window.RHR_joy.vx = 0;
@@ -292,7 +363,6 @@ class GameScene extends Phaser.Scene {
   // ─── keyboard ──────────────────────────────────────────────────────────────
 
   _setupKeyboard() {
-    // keyboard plugin is null on mobile browsers with no physical keyboard
     if (!this.input.keyboard) {
       this.cursors = null;
       this.wasd    = null;
@@ -321,7 +391,6 @@ class GameScene extends Phaser.Scene {
     if (this.cursors.up.isDown    || this.wasd.up.isDown)    ky -= 1;
     if (this.cursors.down.isDown  || this.wasd.down.isDown)  ky += 1;
 
-    // Normalise diagonal
     if (kx !== 0 && ky !== 0) {
       const inv = 1 / Math.SQRT2;
       kx *= inv;
@@ -376,9 +445,7 @@ class GameScene extends Phaser.Scene {
     if (!this.playing) return;
     this.timeLeft--;
     this._updateTimerDisplay();
-    if (this.timeLeft <= 0) {
-      this._endGame(false, 'TOO LATE!');
-    }
+    if (this.timeLeft <= 0) this._endGame('TOO LATE!');
   }
 
   // ─── update loop ───────────────────────────────────────────────────────────
@@ -393,20 +460,18 @@ class GameScene extends Phaser.Scene {
   }
 
   _updatePlayer(delta) {
-    const { WIDTH, PLAY_H, PLAYER_SPEED_BASE, PLAYER_SPEED_PER_LEVEL, PLAYER_R, SPRITE_SCALE } = C;
-    const speed   = PLAYER_SPEED_BASE + (this.currentLevel - 1) * PLAYER_SPEED_PER_LEVEL;
-    const vec     = this._inputVector();
-    const margin  = PLAYER_R;
+    const { WIDTH, PLAY_H, PLAYER_SPEED_BASE, PLAYER_SPEED_PER_LEVEL, PLAYER_R } = C;
+    const speed  = PLAYER_SPEED_BASE + (this.currentLevel - 1) * PLAYER_SPEED_PER_LEVEL;
+    const vec    = this._inputVector();
+    const margin = PLAYER_R;
 
     this.player.x = Phaser.Math.Clamp(
       this.player.x + vec.x * speed * (delta / 1000),
-      72 + margin,
-      WIDTH - 72 - margin
+      margin, WIDTH - margin
     );
     this.player.y = Phaser.Math.Clamp(
       this.player.y + vec.y * speed * (delta / 1000),
-      margin,
-      PLAY_H - margin
+      margin, PLAY_H - margin
     );
   }
 
@@ -416,19 +481,19 @@ class GameScene extends Phaser.Scene {
       npc.x += npc.vx * dt;
       npc.y += npc.vy * dt;
 
-      if (npc.npcType === 'A') this._wrapNPC(npc);
+      if (npc.npcType === 'A')      this._wrapNPC(npc);
       else if (npc.npcType === 'B') this._bounceNPC(npc);
-      else this._wanderNPC(npc, delta);
+      else                          this._wanderNPC(npc, delta);
     }
   }
 
   _wrapNPC(npc) {
     const { WIDTH, PLAY_H } = C;
     const m = 20;
-    if (npc.x < -m)          npc.x = WIDTH + m;
-    if (npc.x > WIDTH + m)   npc.x = -m;
-    if (npc.y < -m)          npc.y = PLAY_H + m;
-    if (npc.y > PLAY_H + m)  npc.y = -m;
+    if (npc.x < -m)         npc.x = WIDTH + m;
+    if (npc.x > WIDTH + m)  npc.x = -m;
+    if (npc.y < -m)         npc.y = PLAY_H + m;
+    if (npc.y > PLAY_H + m) npc.y = -m;
   }
 
   _bounceNPC(npc) {
@@ -444,7 +509,6 @@ class GameScene extends Phaser.Scene {
     const { WIDTH, PLAY_H } = C;
     const m = 24;
 
-    // Steer back if near boundary
     if (npc.x < m || npc.x > WIDTH - m || npc.y < m || npc.y > PLAY_H - m) {
       const angle = Math.atan2(PLAY_H / 2 - npc.y, WIDTH / 2 - npc.x);
       npc.vx = Math.cos(angle) * npc.speed;
@@ -468,7 +532,7 @@ class GameScene extends Phaser.Scene {
     const minDist2 = (C.PLAYER_R + C.NPC_R) ** 2;
     for (const npc of this.npcs) {
       if (this._dist2(this.player.x, this.player.y, npc.x, npc.y) < minDist2) {
-        this._endGame(false, 'COLLISION!');
+        this._endGame('COLLISION!');
         return;
       }
     }
@@ -476,46 +540,76 @@ class GameScene extends Phaser.Scene {
 
   _checkWin() {
     if (this._dist2(this.player.x, this.player.y, C.PB.x, C.PB.y) < C.GOAL_R ** 2) {
-      this._endGame(true, '');
+      this._animateTrainDeparture();
     }
   }
 
-  // ─── end game ──────────────────────────────────────────────────────────────
+  // ─── train departure animation (win) ───────────────────────────────────────
 
-  _endGame(won, reason) {
+  _animateTrainDeparture() {
     if (this.ended) return;
-    this.ended  = true;
+    this.ended   = true;
     this.playing = false;
-
     if (this.timerEvent) this.timerEvent.remove(false);
 
-    if (won) {
-      const prev = parseInt(localStorage.getItem(C.LS_KEY) || '0', 10);
-      if (this.currentLevel > prev) {
-        localStorage.setItem(C.LS_KEY, String(this.currentLevel));
-      }
-
-      const txt = this.add.text(C.WIDTH / 2, C.PLAY_H / 2, 'LEVEL COMPLETE!', {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '22px',
-        color: '#eecc44',
-        stroke: '#000',
-        strokeThickness: 6,
-      }).setOrigin(0.5).setDepth(30);
-
-      this.time.delayedCall(1500, () => {
-        this.scene.start('Game', { level: this.currentLevel + 1 });
-      });
-    } else {
-      // Flash red on collision
-      this.cameras.main.flash(300, 255, 40, 40);
-      this.time.delayedCall(350, () => {
-        this.scene.start('GameOver', {
-          reason,
-          level: this.currentLevel,
-        });
-      });
+    // Save high score
+    const prev = parseInt(localStorage.getItem(C.LS_KEY) || '0', 10);
+    if (this.currentLevel > prev) {
+      localStorage.setItem(C.LS_KEY, String(this.currentLevel));
     }
+
+    // Player boards — hide them
+    this.player.setVisible(false);
+
+    // Close the door
+    this._drawTrainGraphics(false);
+
+    const msg = this.add.text(C.WIDTH / 2, C.PLAY_H / 2, 'DOORS CLOSING!', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '18px',
+      color: '#ffcc44',
+      stroke: '#000',
+      strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(30);
+
+    // After a beat, depart
+    this.time.delayedCall(900, () => {
+      msg.destroy();
+
+      this.tweens.add({
+        targets:  this.trainContainer,
+        y:        -160,
+        duration: 1100,
+        ease:     'Quadratic.In',
+        onComplete: () => {
+          this.add.text(C.WIDTH / 2, C.PLAY_H / 2, 'LEVEL COMPLETE!', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '22px',
+            color: '#eecc44',
+            stroke: '#000',
+            strokeThickness: 6,
+          }).setOrigin(0.5).setDepth(30);
+
+          this.time.delayedCall(1500, () => {
+            this.scene.start('Game', { level: this.currentLevel + 1 });
+          });
+        },
+      });
+    });
+  }
+
+  // ─── loss ──────────────────────────────────────────────────────────────────
+
+  _endGame(reason) {
+    if (this.ended) return;
+    this.ended   = true;
+    this.playing = false;
+    if (this.timerEvent) this.timerEvent.remove(false);
+
+    this.cameras.main.flash(300, 255, 40, 40);
+    this.time.delayedCall(350, () => {
+      this.scene.start('GameOver', { reason, level: this.currentLevel });
+    });
   }
 
   // ─── helpers ───────────────────────────────────────────────────────────────
