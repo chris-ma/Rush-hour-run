@@ -578,7 +578,7 @@ class GameScene extends Phaser.Scene {
 
       this.tweens.add({
         targets:  this.trainContainer,
-        y:        -160,
+        x:        C.WIDTH + 60,
         duration: 1100,
         ease:     'Quadratic.In',
         onComplete: () => {
