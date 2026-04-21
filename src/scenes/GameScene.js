@@ -64,6 +64,22 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0x1a3a88);
     g.fillRect(0, 0, WIDTH, 10);
 
+    // Rail tracks — sleepers then rails, sitting just below train body
+    const sleeperY = 66;
+    const sleeperH = 18;
+    g.fillStyle(0x4a2e0e);  // dark wood ties
+    for (let x = 0; x < WIDTH; x += 22) {
+      g.fillRect(x + 2, sleeperY, 14, sleeperH);
+    }
+    g.fillStyle(0x999990);  // steel rail — top
+    g.fillRect(0, sleeperY + 2, WIDTH, 4);
+    g.fillStyle(0x999990);  // steel rail — bottom
+    g.fillRect(0, sleeperY + sleeperH - 6, WIDTH, 4);
+    // Rail highlights
+    g.fillStyle(0xccccbb, 0.6);
+    g.fillRect(0, sleeperY + 2, WIDTH, 1);
+    g.fillRect(0, sleeperY + sleeperH - 6, WIDTH, 1);
+
     // Joystick zone
     g.fillStyle(0x16161a);
     g.fillRect(0, JOY_ZONE_Y, WIDTH, HEIGHT - JOY_ZONE_Y);
@@ -445,6 +461,7 @@ class GameScene extends Phaser.Scene {
     if (!this.playing) return;
     this.timeLeft--;
     this._updateTimerDisplay();
+    if (this.timeLeft === 10) this._blowWhistle();
     if (this.timeLeft <= 0) this._endGame('TOO LATE!');
   }
 
@@ -613,6 +630,37 @@ class GameScene extends Phaser.Scene {
   }
 
   // ─── helpers ───────────────────────────────────────────────────────────────
+
+  _blowWhistle() {
+    try {
+      const AC  = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+
+      const blast = (startTime, duration) => {
+        // Two-tone steam whistle: fundamental + perfect fifth
+        [660, 990].forEach(freq => {
+          const osc  = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.22, startTime + 0.04);
+          gain.gain.setValueAtTime(0.22, startTime + duration - 0.06);
+          gain.gain.linearRampToValueAtTime(0, startTime + duration);
+          osc.start(startTime);
+          osc.stop(startTime + duration + 0.02);
+        });
+      };
+
+      const t = ctx.currentTime;
+      blast(t,        0.45);   // long toot
+      blast(t + 0.6,  0.25);   // short toot
+      blast(t + 0.95, 0.25);   // short toot
+    } catch (_) { /* audio unavailable */ }
+  }
 
   _dist2(x1, y1, x2, y2) {
     return (x1 - x2) ** 2 + (y1 - y2) ** 2;
