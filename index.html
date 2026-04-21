@@ -12,127 +12,156 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #111114; overflow: hidden; }
 
-    /* Phaser mounts its canvas inside here */
+    /* Phaser canvas container */
     #game-root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+    canvas { display: block; touch-action: none;
+             image-rendering: pixelated; image-rendering: crisp-edges; }
 
-    canvas {
-      display: block;
-      touch-action: none;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-    }
-
-    /* ── DOM UI layer ── sits above canvas; pointer-events off by default so
-       in-game touches reach the canvas, enabled only on active controls      */
-    #rhr-ui {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 500;
-      pointer-events: none;
-      display: flex;
+    /* ── Shared overlay base ─────────────────────────────── */
+    .screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 1000;
+      display: none;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-end;
-      padding-bottom: 24%;
-      gap: 18px;
+      justify-content: center;
+      gap: 22px;
     }
 
-    /* Tap-anywhere overlay for menu (full screen) */
-    #rhr-tap {
-      display: none;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 501;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+    /* ── HTML Menu ───────────────────────────────────────── */
+    #html-menu { background: #111114; display: flex; }
+
+    #html-menu .title {
+      font-family: 'Press Start 2P', monospace;
+      text-align: center; line-height: 1.6;
+    }
+    #html-menu .title .line1 { font-size: 38px; color: #eecc44; display: block; }
+    #html-menu .title .line2 { font-size: 38px; color: #eecc44; display: block; }
+    #html-menu .title .line3 { font-size: 38px; color: #ee4444; display: block; }
+
+    #html-menu .tagline {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; color: #666660;
+    }
+    #html-best {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px; color: #66aaff;
+      min-height: 1.4em;
     }
 
+    /* ── Shared button style ─────────────────────────────── */
     .rhr-btn {
-      pointer-events: all;
       font-family: 'Press Start 2P', monospace;
       font-size: 15px;
-      background: transparent;
-      border: 2px solid rgba(255,255,255,0.55);
       color: #ffffff;
-      padding: 14px 28px;
+      background: #1a1a20;
+      border: 3px solid rgba(255,255,255,0.55);
+      padding: 16px 32px;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       letter-spacing: 1px;
-      display: none;         /* hidden until needed */
     }
+    .rhr-btn:active { background: #333340; }
     .rhr-btn.dim { color: #aaaaaa; border-color: rgba(170,170,170,0.4); }
+
+    #html-menu .hint {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px; color: #333338; text-align: center;
+    }
+
+    /* ── Game-Over DOM buttons ───────────────────────────── */
+    #html-gameover {
+      pointer-events: none;      /* pass-through except for buttons */
+      justify-content: flex-end;
+      padding-bottom: 22%;
+      gap: 18px;
+    }
+    #html-gameover .rhr-btn { pointer-events: all; }
   </style>
 </head>
 <body>
+
+  <!-- Phaser renders here (always present, covered by menu until play) -->
   <div id="game-root"></div>
 
-  <!-- DOM overlay: tap layer (menu) + buttons (game over) -->
-  <div id="rhr-tap"></div>
-  <div id="rhr-ui">
-    <button id="rhr-retry" class="rhr-btn">[ RETRY ]</button>
-    <button id="rhr-menu"  class="rhr-btn dim">[ MENU ]</button>
+  <!-- ── HTML Menu (pure DOM — zero Phaser dependency) ──── -->
+  <div id="html-menu" class="screen">
+    <div class="title">
+      <span class="line1">RUSH</span>
+      <span class="line2">HOUR</span>
+      <span class="line3">RUN</span>
+    </div>
+    <div class="tagline">DON'T BE LATE</div>
+    <div id="html-best"></div>
+    <button id="btn-play" class="rhr-btn">TAP TO PLAY</button>
+    <div class="hint">DRAG LOWER HALF OF SCREEN TO MOVE</div>
+  </div>
+
+  <!-- ── Game-Over buttons (shown over Phaser canvas) ───── -->
+  <div id="html-gameover" class="screen">
+    <button id="btn-retry"  class="rhr-btn">[ RETRY ]</button>
+    <button id="btn-to-menu" class="rhr-btn dim">[ MENU ]</button>
   </div>
 
   <script>
-    // ─── RHRui: native DOM handler for all scene-transition taps ─────────────
-    window.RHRui = {
-      // Called by MenuScene.create() — whole screen becomes a tap target
-      showMenu: function () {
-        var tap = document.getElementById('rhr-tap');
-        tap.style.display = 'block';
-        // remove any stale listener first
-        tap.replaceWith(tap.cloneNode(true));
-        tap = document.getElementById('rhr-tap');
+    // ── helpers ──────────────────────────────────────────
+    function el(id) { return document.getElementById(id); }
 
-        function go(e) {
-          if (e.cancelable) e.preventDefault();
-          tap.style.display = 'none';
-          var ms = window.RHR && window.RHR.scene.getScene('Menu');
-          if (ms) ms.scene.start('Game', { level: 1 });
-        }
-        tap.addEventListener('touchstart', go, { once: true, passive: false });
-        tap.addEventListener('click',      go, { once: true });
-      },
+    function showMenu() {
+      var best = parseInt(localStorage.getItem('rushHourRun_highestLevel') || '0', 10);
+      el('html-best').textContent = best > 0 ? 'BEST: LEVEL ' + best : '';
+      el('html-gameover').style.display = 'none';
+      el('html-menu').style.display = 'flex';
+    }
 
-      // Called by GameOverScene.create()
-      showGameOver: function (onRetry, onMenu) {
-        var r = document.getElementById('rhr-retry');
-        var m = document.getElementById('rhr-menu');
-        r.style.display = m.style.display = 'block';
+    function hideMenu() {
+      el('html-menu').style.display = 'none';
+    }
 
-        function wire(btn, cb) {
-          var fresh = btn.cloneNode(true);
-          btn.parentNode.replaceChild(fresh, btn);
-          fresh.style.display = 'block';
-          fresh.addEventListener('touchstart', function (e) {
-            if (e.cancelable) e.preventDefault();
-            cb();
-          }, { once: true, passive: false });
-          fresh.addEventListener('click', cb, { once: true });
-          return fresh;
-        }
-        wire(r, onRetry);
-        wire(m, onMenu);
-      },
-
-      // Hide all controls (called before any scene transition from DOM)
-      hide: function () {
-        document.getElementById('rhr-tap').style.display = 'none';
-        ['rhr-retry', 'rhr-menu'].forEach(function (id) {
-          document.getElementById(id).style.display = 'none';
-        });
-      }
+    // Called by GameOverScene.create() to surface retry/menu buttons
+    window.RHR_showGameOver = function () {
+      el('html-menu').style.display = 'none';
+      el('html-gameover').style.display = 'flex';
     };
+
+    // ── button wiring ─────────────────────────────────────
+    function on(id, fn) {
+      var b = el(id);
+      b.addEventListener('touchstart', function (e) {
+        e.preventDefault(); fn();
+      }, { passive: false });
+      b.addEventListener('click', fn);
+    }
+
+    on('btn-play', function () {
+      hideMenu();
+      // Phaser is already initialised; just start the game scene
+      if (window.RHR) window.RHR.scene.start('Game', { level: 1 });
+    });
+
+    on('btn-retry', function () {
+      el('html-gameover').style.display = 'none';
+      if (window.RHR) {
+        window.RHR.scene.stop('GameOver');
+        window.RHR.scene.start('Game', { level: 1 });
+      }
+    });
+
+    on('btn-to-menu', function () {
+      el('html-gameover').style.display = 'none';
+      if (window.RHR) window.RHR.scene.stop('GameOver');
+      showMenu();
+    });
+
+    // Show menu on first load
+    showMenu();
   </script>
 
+  <!-- Phaser + game scripts -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <script src="src/constants.js"></script>
   <script src="src/scenes/BootScene.js"></script>
-  <script src="src/scenes/MenuScene.js"></script>
   <script src="src/scenes/GameScene.js"></script>
   <script src="src/scenes/GameOverScene.js"></script>
   <script src="src/main.js"></script>

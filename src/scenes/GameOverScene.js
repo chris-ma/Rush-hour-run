@@ -11,7 +11,7 @@ class GameOverScene extends Phaser.Scene {
     const cx      = WIDTH / 2;
     const highest = parseInt(localStorage.getItem(LS_KEY) || '0', 10);
 
-    this.add.rectangle(cx, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.85);
+    this.add.rectangle(cx, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0.88);
 
     const reasonColor = this.reason === 'COLLISION!' ? '#ff4444' : '#ffaa22';
     this.add.text(cx, 200, this.reason, {
@@ -45,17 +45,7 @@ class GameOverScene extends Phaser.Scene {
       color: '#66aaff',
     }).setOrigin(0.5);
 
-    // Buttons handled by the DOM layer — no Phaser input needed
-    const self = this;
-    window.RHRui.showGameOver(
-      function () {                                    // retry
-        window.RHRui.hide();
-        self.scene.start('Game', { level: 1 });
-      },
-      function () {                                    // menu
-        window.RHRui.hide();
-        self.scene.start('Menu');
-      }
-    );
+    // Buttons are DOM elements in index.html — show them now
+    if (window.RHR_showGameOver) window.RHR_showGameOver();
   }
 }

@@ -1,6 +1,8 @@
+// MenuScene removed — menu is pure HTML (see index.html)
+// Phaser only handles game rendering and joystick input
 window.RHR = new Phaser.Game({
   type: Phaser.AUTO,
-  parent: 'game-root',       // explicit parent so Phaser owns coordinate space
+  parent: 'game-root',
   width: C.WIDTH,
   height: C.HEIGHT,
   pixelArt: true,
@@ -12,5 +14,5 @@ window.RHR = new Phaser.Game({
   input: {
     activePointers: 3,
   },
-  scene: [BootScene, MenuScene, GameScene, GameOverScene],
+  scene: [BootScene, GameScene, GameOverScene],
 });

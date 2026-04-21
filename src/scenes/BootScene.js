@@ -8,7 +8,7 @@ class BootScene extends Phaser.Scene {
     this._makeNPC('npc_c', '#8faa22');   // green — Wanderer
     this._makeMarker('marker_a', 'rgba(0,200,60,0.35)', '#22ee66');
     this._makeMarker('marker_b', 'rgba(40,120,255,0.35)', '#44aaff');
-    this.scene.start('Menu');
+    // Sit idle — HTML menu (index.html) drives the first scene transition
   }
 
   // 16×16 top-down person, pixel-art style
