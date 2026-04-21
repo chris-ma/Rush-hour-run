@@ -322,6 +322,12 @@ class GameScene extends Phaser.Scene {
   // ─── keyboard ──────────────────────────────────────────────────────────────
 
   _setupKeyboard() {
+    // keyboard plugin is null on mobile browsers with no physical keyboard
+    if (!this.input.keyboard) {
+      this.cursors = null;
+      this.wasd    = null;
+      return;
+    }
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd    = this.input.keyboard.addKeys({
       up:    Phaser.Input.Keyboard.KeyCodes.W,
@@ -336,6 +342,8 @@ class GameScene extends Phaser.Scene {
     if (this.joyActive && (this.joyVector.x !== 0 || this.joyVector.y !== 0)) {
       return { ...this.joyVector };
     }
+
+    if (!this.cursors) return { x: 0, y: 0 };
 
     let kx = 0, ky = 0;
     if (this.cursors.left.isDown  || this.wasd.left.isDown)  kx -= 1;

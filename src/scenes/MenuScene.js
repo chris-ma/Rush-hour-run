@@ -62,14 +62,28 @@ class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    // Play button
+    // Invisible full-screen tap target — most reliable on mobile
+    const hitArea = this.add.rectangle(cx, HEIGHT / 2, WIDTH, HEIGHT, 0x000000, 0)
+      .setDepth(50)
+      .setInteractive();
+
+    let started = false;
+    const startGame = () => {
+      if (started) return;
+      started = true;
+      this.scene.start('Game', { level: 1 });
+    };
+
+    hitArea.on('pointerdown', startGame);
+
+    // Play button (visual only — tap anywhere works)
     const btn = this.add.text(cx, 490, '[ TAP TO PLAY ]', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '14px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 4,
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(51);
 
     // Blink
     this.tweens.add({
@@ -93,8 +107,5 @@ class MenuScene extends Phaser.Scene {
       fontSize: '9px',
       color: '#555550',
     }).setOrigin(0.5);
-
-    // Start on tap/click anywhere
-    this.input.once('pointerdown', () => this.scene.start('Game', { level: 1 }));
   }
 }
