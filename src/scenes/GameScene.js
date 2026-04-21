@@ -65,12 +65,12 @@ class GameScene extends Phaser.Scene {
     for (let i = 0; i < 12; i++) {
       const cx = rng.between(4, 60);
       const cy = rng.between(10, PLAY_H - 10);
-      g.strokeLine(cx, cy, cx + rng.between(-10, 10), cy + rng.between(-10, 10));
+      g.lineBetween(cx, cy, cx + rng.between(-10, 10), cy + rng.between(-10, 10));
     }
     for (let i = 0; i < 12; i++) {
       const cx = rng.between(WIDTH - 68, WIDTH - 4);
       const cy = rng.between(10, PLAY_H - 10);
-      g.strokeLine(cx, cy, cx + rng.between(-10, 10), cy + rng.between(-10, 10));
+      g.lineBetween(cx, cy, cx + rng.between(-10, 10), cy + rng.between(-10, 10));
     }
 
     // Joystick zone
@@ -79,7 +79,7 @@ class GameScene extends Phaser.Scene {
 
     // Separator line
     g.lineStyle(2, 0x3a3a40);
-    g.strokeLine(0, JOY_ZONE_Y, WIDTH, JOY_ZONE_Y);
+    g.lineBetween(0, JOY_ZONE_Y, WIDTH, JOY_ZONE_Y);
 
     // "MOVE" label in joystick zone
     this.add.text(WIDTH / 2, JOY_ZONE_Y + 24, 'DRAG HERE TO MOVE', {
