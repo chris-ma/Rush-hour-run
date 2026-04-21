@@ -105,6 +105,14 @@
   </div>
 
   <script>
+    // Show JS errors on-screen (helps debug on mobile where devtools aren't available)
+    window.addEventListener('error', function(e) {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#cc0000;color:#fff;padding:8px;font-size:11px;z-index:9999;font-family:monospace;word-break:break-all;';
+      d.textContent = (e.message || e) + (e.filename ? ' — ' + e.filename.split('/').pop() + ':' + e.lineno : '');
+      document.body.appendChild(d);
+    });
+
     // ── helpers ──────────────────────────────────────────
     function el(id) { return document.getElementById(id); }
 
@@ -136,8 +144,10 @@
 
     on('btn-play', function () {
       hideMenu();
-      // Phaser is already initialised; just start the game scene
-      if (window.RHR) window.RHR.scene.start('Game', { level: 1 });
+      if (window.RHR) {
+        window.RHR.scene.stop('Boot');
+        window.RHR.scene.start('Game', { level: 1 });
+      }
     });
 
     on('btn-retry', function () {
