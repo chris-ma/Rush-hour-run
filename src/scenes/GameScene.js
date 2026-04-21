@@ -480,20 +480,31 @@ class GameScene extends Phaser.Scene {
     const { WIDTH, PLAY_H, PLAYER_SPEED_BASE, PLAYER_SPEED_PER_LEVEL, PLAYER_R } = C;
     const speed  = PLAYER_SPEED_BASE + (this.currentLevel - 1) * PLAYER_SPEED_PER_LEVEL;
     const vec    = this._inputVector();
-    const margin = PLAYER_R;
+    const m      = PLAYER_R;
 
     this.player.x = Phaser.Math.Clamp(
       this.player.x + vec.x * speed * (delta / 1000),
-      margin, WIDTH - margin
+      m, WIDTH - m
     );
     this.player.y = Phaser.Math.Clamp(
       this.player.y + vec.y * speed * (delta / 1000),
-      margin, PLAY_H - margin
+      m, PLAY_H - m
     );
+
+    // Train wall — solid except for the centre door opening
+    const TRAIN_BOT = 76;
+    const DOOR_X1   = 216;
+    const DOOR_X2   = 264;
+    if (this.player.y < TRAIN_BOT &&
+        (this.player.x < DOOR_X1 || this.player.x > DOOR_X2)) {
+      this.player.y = TRAIN_BOT;
+    }
   }
 
   _updateNPCs(delta) {
-    const dt = delta / 1000;
+    const dt        = delta / 1000;
+    const TRAIN_BOT = 76;
+
     for (const npc of this.npcs) {
       npc.x += npc.vx * dt;
       npc.y += npc.vy * dt;
@@ -501,6 +512,12 @@ class GameScene extends Phaser.Scene {
       if (npc.npcType === 'A')      this._wrapNPC(npc);
       else if (npc.npcType === 'B') this._bounceNPC(npc);
       else                          this._wanderNPC(npc, delta);
+
+      // Hard wall — all NPCs bounce off the train regardless of type
+      if (npc.y < TRAIN_BOT) {
+        npc.y  = TRAIN_BOT;
+        npc.vy = Math.abs(npc.vy);
+      }
     }
   }
 
@@ -515,10 +532,11 @@ class GameScene extends Phaser.Scene {
 
   _bounceNPC(npc) {
     const { WIDTH, PLAY_H } = C;
-    const m = 24;
+    const m   = 24;
+    const top = 76; // train wall
     if (npc.x < m)          { npc.x = m;          npc.vx =  Math.abs(npc.vx); }
     if (npc.x > WIDTH - m)  { npc.x = WIDTH - m;  npc.vx = -Math.abs(npc.vx); }
-    if (npc.y < m)          { npc.y = m;           npc.vy =  Math.abs(npc.vy); }
+    if (npc.y < top)         { npc.y = top;         npc.vy =  Math.abs(npc.vy); }
     if (npc.y > PLAY_H - m) { npc.y = PLAY_H - m; npc.vy = -Math.abs(npc.vy); }
   }
 
@@ -526,7 +544,7 @@ class GameScene extends Phaser.Scene {
     const { WIDTH, PLAY_H } = C;
     const m = 24;
 
-    if (npc.x < m || npc.x > WIDTH - m || npc.y < m || npc.y > PLAY_H - m) {
+    if (npc.x < m || npc.x > WIDTH - m || npc.y < 76 || npc.y > PLAY_H - m) {
       const angle = Math.atan2(PLAY_H / 2 - npc.y, WIDTH / 2 - npc.x);
       npc.vx = Math.cos(angle) * npc.speed;
       npc.vy = Math.sin(angle) * npc.speed;
