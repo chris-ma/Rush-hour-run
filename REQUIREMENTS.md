@@ -3,7 +3,8 @@
 ## 1. Overview
 
 **Genre:** Top-down 2D dodging game  
-**Platform:** Browser (HTML5, powered by Phaser.js v3)  
+**Platform:** Browser (HTML5, powered by Phaser.js v3) — **primary target: mobile browsers**  
+**Orientation:** Portrait  
 **Premise:** You are an office worker running late. Navigate a crowded city pavement from your front door (Point A) to the office entrance (Point B) before the countdown timer expires — without colliding with anyone along the way.
 
 ---
@@ -38,12 +39,38 @@ The game's look must evoke the gritty, top-down realism of GTA 1 (1997) and Post
 ## 4. Player Mechanics
 
 - **View:** Top-down (bird's-eye).
-- **Controls:** WASD or Arrow Keys. 8-directional movement. Diagonal movement speed must be normalised (multiplied by `1/√2 ≈ 0.707`) so diagonal is not faster than cardinal.
 - **Base speed:** 160 px/s at Level 1; increases by +5 px/s per level.
 - **Hitbox:** Circle, radius = 40% of sprite's visual width.
 - **Sprite orientation:** Rotates to face current movement direction (4 directional frames).
 - **Lives / Health:** None — one collision = instant Game Over.
 - **Abilities:** None at this scope.
+
+### 4.1 Mobile Controls (Primary)
+
+The game is primarily touch-driven. A **floating virtual joystick** is the main input method:
+
+- **Joystick zone:** The lower 35% of the game canvas (below the arena play area). No game elements appear in this zone — it exists solely for touch input.
+- **Floating / dynamic spawn:** The joystick base appears at the exact point the player first touches within the joystick zone. It does not have a fixed position — this reduces thumb reach and feels more natural.
+- **Knob travel:** Maximum 60 px from the base centre.
+- **Dead zone:** 10 px radius — touches within this radius of the base produce no movement.
+- **Analog output:** The joystick produces a continuous normalised direction vector (not snapped to 8 directions), enabling smooth 360° movement. Velocity = `normalisedVector × playerSpeed`.
+- **Reset on lift:** When the finger lifts, the joystick disappears. It respawns on the next touch at the new touch point.
+- **Multi-touch:** Only one touch point drives the joystick (the first active touch in the joystick zone). Additional simultaneous touches are ignored.
+
+**Joystick visual (pixel-art styled):**
+- Base ring: semi-transparent dark circle, ~80 px diameter, 2 px pixel-art border.
+- Knob: solid lighter circle, ~36 px diameter.
+- Opacity: 60% at rest, 90% while being moved — unobtrusive but visible.
+
+### 4.2 Keyboard Controls (Desktop Fallback)
+
+- WASD or Arrow Keys.
+- 8-directional movement; diagonal speed normalised by `1/√2 ≈ 0.707`.
+- The virtual joystick is hidden when a keyboard event is detected; it reappears on the next touch event.
+
+### 4.3 Touch Target Sizes (All Screens)
+
+All tappable UI elements (buttons, menu options) must have a minimum touch target of **44 × 44 px** (logical pixels, pre-scale) per platform accessibility guidelines.
 
 ---
 
@@ -119,12 +146,16 @@ Each NPC is randomly assigned one of three types at spawn:
 
 ## 9. Arena / Map Design
 
-- **Viewport:** Single, non-scrolling screen. Logical resolution: **800 × 600 px**.
+- **Orientation:** Portrait.
+- **Logical resolution:** **480 × 800 px** total canvas.
+  - **Play area (arena):** 480 × 520 px — upper portion where game action occurs.
+  - **Joystick zone:** 480 × 280 px — lower portion reserved exclusively for touch input; no game sprites render here.
+- **Scaling:** Phaser `ScaleManager` set to `FIT` mode with `autoCenter` enabled — canvas scales to fill the device screen while preserving the 480:800 aspect ratio. Nearest-neighbour scaling enforced (`pixelArt: true`).
 - **Map style:** Urban pavement / street — pixel-art tilemap with road, kerb, and pavement tiles.
-- **Point A (Start):** Bottom-centre of the arena. Marked with a pixel-art "home door" sprite and a green indicator zone.
-- **Point B (Goal):** Top-centre of the arena. Marked with a pixel-art "office door" sprite and a blue indicator zone.
-- **Arena boundaries:** Hard walls — player and NPCs cannot exit the arena (player is clamped; Type A NPCs wrap; Type B NPCs bounce).
-- **Unobstructed path distance:** The straight-line distance from Point A to Point B must require ~8–12 s of unimpeded travel at base player speed, creating a meaningful skill gap between perfect and average navigation.
+- **Point A (Start):** Bottom-centre of the **play area** (top edge of the joystick zone). Marked with a pixel-art "home door" sprite and a green indicator zone.
+- **Point B (Goal):** Top-centre of the play area. Marked with a pixel-art "office door" sprite and a blue indicator zone.
+- **Arena boundaries:** Hard walls — player and NPCs cannot exit the play area (player is clamped; Type A NPCs wrap; Type B NPCs bounce).
+- **Unobstructed path distance:** The straight-line A→B distance must require ~8–12 s of unimpeded travel at base player speed.
 
 ---
 
@@ -146,10 +177,15 @@ Start Screen
 - [Play] button.
 
 ### HUD (visible during play)
+
+HUD elements are confined to the play area (upper 480 × 520 px). The joystick zone below is kept clear.
+
 | Element | Position | Content |
 |---|---|---|
-| Timer | Top-right | Countdown; red + pulsing at ≤5 s |
-| Level | Top-left | "LEVEL X" |
+| Timer | Top-right of play area | Countdown; red + pulsing at ≤5 s |
+| Level | Top-left of play area | "LEVEL X" |
+
+HUD text must be large enough to read without zooming — minimum rendered height of 18 px for timer digits.
 
 ### Countdown Intro
 - Overlay drawn over the already-visible (static) arena and NPCs.
@@ -174,8 +210,10 @@ Start Screen
 - **Physics:** Phaser Arcade Physics for movement and collision detection
 - **Collision model:** Circle-to-circle for player ↔ NPC; circle-to-zone for player ↔ Point B goal area
 - **Frame rate:** Target 60 fps; physics update must be frame-rate independent (fixed timestep)
-- **Resolution:** 800 × 600 px logical, scaled to fit browser window (letterboxed)
-- **Browser support:** Chrome, Firefox, Safari (latest 2 major versions each)
+- **Resolution:** 480 × 800 px logical, portrait orientation, scaled to fit device screen via Phaser `ScaleManager` (`FIT` + `autoCenter`)
+- **Viewport meta tag:** `<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">` — prevents pinch-zoom and double-tap zoom interfering with gameplay
+- **Touch events:** Phaser's built-in `InputPlugin` pointer events handle all touch. `preventDefault` on `touchstart` / `touchmove` to suppress browser scroll and context-menu behaviour during play.
+- **Browser support:** Mobile Chrome (Android), Mobile Safari (iOS 15+), Desktop Chrome, Desktop Firefox, Desktop Safari (latest 2 versions each)
 - **No backend:** Fully client-side; no API calls, no accounts, no cookies
 - **Pixel font:** Press Start 2P (via Google Fonts CDN or bundled)
 
@@ -223,8 +261,10 @@ Total asset payload target: **≤ 2 MB uncompressed**.
 
 ## 13. Non-Functional Requirements
 
-- Game must be fully interactive within **3 seconds** of page load on a 10 Mbps connection.
-- Stable **60 fps** on hardware from 2018 or later (integrated graphics).
+- Game must be fully interactive within **3 seconds** of page load on a 10 Mbps mobile connection.
+- Stable **60 fps** on mid-range Android phones (2020 or later) and iPhone XR or later.
+- No layout shift or pinch-zoom when the device is tapped or swiped.
+- The joystick zone must never trigger native browser scroll or pull-to-refresh behaviour.
 - All tunable constants in `src/constants.js` — no hardcoded magic numbers in logic files.
 - No external dependencies beyond Phaser.js and Press Start 2P font.
 - Passes ESLint recommended ruleset with no errors.
@@ -236,7 +276,6 @@ Total asset payload target: **≤ 2 MB uncompressed**.
 The following are explicitly excluded from this version to prevent scope creep:
 
 - Multiplayer
-- Mobile / touch controls
 - Power-ups, collectibles, or player abilities
 - NPC-to-NPC collision
 - Procedurally generated map layouts
@@ -256,6 +295,11 @@ The following are explicitly excluded from this version to prevent scope creep:
 | AC-003 | Game is in PLAYING state | Timer reaches 0:00; player not at Point B | Transition to Game Over with "TOO LATE!" |
 | AC-004 | Game initialises a level | NPCs are placed | No NPC centre within 120 px of Point A or 60 px of Point B |
 | AC-005 | Player holds two perpendicular movement keys | One frame elapses | Player displacement ≤ `playerSpeed × elapsed` (not 1.41×) |
+| AC-010 | Player touches within the joystick zone | First touch begins | Joystick base appears at that touch point; player begins moving in the dragged direction |
+| AC-011 | Player lifts finger from joystick | Touch ends | Player stops moving; joystick disappears |
+| AC-012 | Player drags joystick to any angle | Game is running | Player moves in the exact analog direction of the joystick vector (smooth 360°, not snapped to 8 directions) |
+| AC-013 | Game is running on mobile | Player swipes or scrolls within the canvas | Browser does not scroll, bounce, or show a context menu — all touch events are consumed by the game |
+| AC-014 | Game loads on a phone in portrait mode | Canvas renders | Game fills the screen without distortion, black bars only on unusual aspect ratios, no horizontal overflow |
 | AC-006 | Player wins a run and beats their highest level | Page is refreshed | Start screen shows the updated highest level |
 | AC-007 | Timer has > 5 seconds remaining | Timer crosses 5 s | Timer text turns red and pulses at ~1 Hz |
 | AC-008 | Browser frame rate drops to 30 fps | Game is running | NPC and player move at the same real-world speed as at 60 fps |
