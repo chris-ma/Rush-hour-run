@@ -256,48 +256,18 @@ class GameScene extends Phaser.Scene {
     this.joyBaseGfx = this.add.graphics().setDepth(20);
     this.joyKnobGfx = this.add.graphics().setDepth(21);
     this._hideJoystick();
-
-    this.input.on('pointerdown', this._onPointerDown, this);
-    this.input.on('pointermove', this._onPointerMove, this);
-    this.input.on('pointerup',   this._onPointerUp,   this);
-    this.input.on('pointerupoutside', this._onPointerUp, this);
-  }
-
-  _onPointerDown(ptr) {
-    if (this.joyPtrId !== null) return;     // already tracking one finger
-    if (ptr.y < C.JOY_ZONE_Y) return;       // only activate in joystick zone
-    this.joyActive  = true;
-    this.joyPtrId   = ptr.id;
-    this.joyOrigin  = { x: ptr.x, y: ptr.y };
-    this._drawJoystick(ptr.x, ptr.y, ptr.x, ptr.y);
-  }
-
-  _onPointerMove(ptr) {
-    if (!this.joyActive || ptr.id !== this.joyPtrId) return;
-    const dx   = ptr.x - this.joyOrigin.x;
-    const dy   = ptr.y - this.joyOrigin.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const clamped = Math.min(dist, C.JOY_MAX);
-    const angle   = Math.atan2(dy, dx);
-
-    const kx = this.joyOrigin.x + Math.cos(angle) * clamped;
-    const ky = this.joyOrigin.y + Math.sin(angle) * clamped;
-    this._drawJoystick(this.joyOrigin.x, this.joyOrigin.y, kx, ky);
-
-    if (dist > C.JOY_DEAD) {
-      const norm = clamped / C.JOY_MAX;
-      this.joyVector = { x: Math.cos(angle) * norm, y: Math.sin(angle) * norm };
-    } else {
-      this.joyVector = { x: 0, y: 0 };
+    // Touch input handled by native DOM events in index.html via window.RHR_joy
+    if (window.RHR_joy) {
+      window.RHR_joy.active = false;
+      window.RHR_joy.vx = 0;
+      window.RHR_joy.vy = 0;
     }
   }
 
-  _onPointerUp(ptr) {
-    if (ptr.id !== this.joyPtrId) return;
-    this.joyActive  = false;
-    this.joyPtrId   = null;
-    this.joyVector  = { x: 0, y: 0 };
-    this._hideJoystick();
+  _syncJoystickGraphics() {
+    const joy = window.RHR_joy;
+    if (!joy || !joy.active) { this._hideJoystick(); return; }
+    this._drawJoystick(joy.ox, joy.oy, joy.kx, joy.ky);
   }
 
   _drawJoystick(bx, by, kx, ky) {
@@ -338,9 +308,9 @@ class GameScene extends Phaser.Scene {
   }
 
   _inputVector() {
-    // Joystick takes priority
-    if (this.joyActive && (this.joyVector.x !== 0 || this.joyVector.y !== 0)) {
-      return { ...this.joyVector };
+    const joy = window.RHR_joy;
+    if (joy && joy.active && (joy.vx !== 0 || joy.vy !== 0)) {
+      return { x: joy.vx, y: joy.vy };
     }
 
     if (!this.cursors) return { x: 0, y: 0 };
@@ -415,6 +385,7 @@ class GameScene extends Phaser.Scene {
 
   update(_, delta) {
     if (!this.playing || this.ended) return;
+    this._syncJoystickGraphics();
     this._updatePlayer(delta);
     this._updateNPCs(delta);
     this._checkCollisions();

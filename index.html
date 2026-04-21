@@ -165,5 +165,81 @@
   <script src="src/scenes/GameScene.js"></script>
   <script src="src/scenes/GameOverScene.js"></script>
   <script src="src/main.js"></script>
+
+  <!-- Native DOM joystick — bypasses Phaser input for mobile compatibility -->
+  <script>
+    window.RHR_joy = { active: false, ox: 0, oy: 0, vx: 0, vy: 0, kx: 0, ky: 0 };
+    var _joyTouchId = null;
+
+    function _joyCanvas() { return document.querySelector('#game-root canvas'); }
+
+    function _joyToLogical(cx, cy) {
+      var canvas = _joyCanvas();
+      if (!canvas) return { x: cx, y: cy };
+      var r = canvas.getBoundingClientRect();
+      return {
+        x: (cx - r.left) * (C.WIDTH  / r.width),
+        y: (cy - r.top)  * (C.HEIGHT / r.height),
+      };
+    }
+
+    function _joyGameActive() {
+      return window.RHR && window.RHR.scene && window.RHR.scene.isActive('Game');
+    }
+
+    document.addEventListener('touchstart', function(e) {
+      if (!_joyGameActive() || _joyTouchId !== null) return;
+      var t = e.changedTouches[0];
+      var p = _joyToLogical(t.clientX, t.clientY);
+      if (p.y < C.JOY_ZONE_Y) return;
+      e.preventDefault();
+      _joyTouchId = t.identifier;
+      var j = window.RHR_joy;
+      j.active = true; j.ox = p.x; j.oy = p.y;
+      j.vx = 0; j.vy = 0; j.kx = p.x; j.ky = p.y;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', function(e) {
+      if (_joyTouchId === null) return;
+      for (var i = 0; i < e.changedTouches.length; i++) {
+        var t = e.changedTouches[i];
+        if (t.identifier !== _joyTouchId) continue;
+        e.preventDefault();
+        var p = _joyToLogical(t.clientX, t.clientY);
+        var j = window.RHR_joy;
+        var dx = p.x - j.ox, dy = p.y - j.oy;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var clamped = Math.min(dist, C.JOY_MAX);
+        var angle = Math.atan2(dy, dx);
+        j.kx = j.ox + Math.cos(angle) * clamped;
+        j.ky = j.oy + Math.sin(angle) * clamped;
+        if (dist > C.JOY_DEAD) {
+          var norm = clamped / C.JOY_MAX;
+          j.vx = Math.cos(angle) * norm;
+          j.vy = Math.sin(angle) * norm;
+        } else { j.vx = 0; j.vy = 0; }
+        break;
+      }
+    }, { passive: false });
+
+    function _joyReset() {
+      _joyTouchId = null;
+      window.RHR_joy.active = false;
+      window.RHR_joy.vx = 0;
+      window.RHR_joy.vy = 0;
+    }
+
+    document.addEventListener('touchend',    function(e) {
+      for (var i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === _joyTouchId) { _joyReset(); break; }
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchcancel', function(e) {
+      for (var i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === _joyTouchId) { _joyReset(); break; }
+      }
+    }, { passive: false });
+  </script>
 </body>
 </html>
