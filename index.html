@@ -10,21 +10,125 @@
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      background: #111114;
-      overflow: hidden;
-    }
+    html, body { width: 100%; height: 100%; background: #111114; overflow: hidden; }
+
+    /* Phaser mounts its canvas inside here */
+    #game-root { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+
     canvas {
       display: block;
       touch-action: none;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
+
+    /* ── DOM UI layer ── sits above canvas; pointer-events off by default so
+       in-game touches reach the canvas, enabled only on active controls      */
+    #rhr-ui {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 500;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 24%;
+      gap: 18px;
+    }
+
+    /* Tap-anywhere overlay for menu (full screen) */
+    #rhr-tap {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 501;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .rhr-btn {
+      pointer-events: all;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 15px;
+      background: transparent;
+      border: 2px solid rgba(255,255,255,0.55);
+      color: #ffffff;
+      padding: 14px 28px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      letter-spacing: 1px;
+      display: none;         /* hidden until needed */
+    }
+    .rhr-btn.dim { color: #aaaaaa; border-color: rgba(170,170,170,0.4); }
   </style>
 </head>
 <body>
+  <div id="game-root"></div>
+
+  <!-- DOM overlay: tap layer (menu) + buttons (game over) -->
+  <div id="rhr-tap"></div>
+  <div id="rhr-ui">
+    <button id="rhr-retry" class="rhr-btn">[ RETRY ]</button>
+    <button id="rhr-menu"  class="rhr-btn dim">[ MENU ]</button>
+  </div>
+
+  <script>
+    // ─── RHRui: native DOM handler for all scene-transition taps ─────────────
+    window.RHRui = {
+      // Called by MenuScene.create() — whole screen becomes a tap target
+      showMenu: function () {
+        var tap = document.getElementById('rhr-tap');
+        tap.style.display = 'block';
+        // remove any stale listener first
+        tap.replaceWith(tap.cloneNode(true));
+        tap = document.getElementById('rhr-tap');
+
+        function go(e) {
+          if (e.cancelable) e.preventDefault();
+          tap.style.display = 'none';
+          var ms = window.RHR && window.RHR.scene.getScene('Menu');
+          if (ms) ms.scene.start('Game', { level: 1 });
+        }
+        tap.addEventListener('touchstart', go, { once: true, passive: false });
+        tap.addEventListener('click',      go, { once: true });
+      },
+
+      // Called by GameOverScene.create()
+      showGameOver: function (onRetry, onMenu) {
+        var r = document.getElementById('rhr-retry');
+        var m = document.getElementById('rhr-menu');
+        r.style.display = m.style.display = 'block';
+
+        function wire(btn, cb) {
+          var fresh = btn.cloneNode(true);
+          btn.parentNode.replaceChild(fresh, btn);
+          fresh.style.display = 'block';
+          fresh.addEventListener('touchstart', function (e) {
+            if (e.cancelable) e.preventDefault();
+            cb();
+          }, { once: true, passive: false });
+          fresh.addEventListener('click', cb, { once: true });
+          return fresh;
+        }
+        wire(r, onRetry);
+        wire(m, onMenu);
+      },
+
+      // Hide all controls (called before any scene transition from DOM)
+      hide: function () {
+        document.getElementById('rhr-tap').style.display = 'none';
+        ['rhr-retry', 'rhr-menu'].forEach(function (id) {
+          document.getElementById(id).style.display = 'none';
+        });
+      }
+    };
+  </script>
+
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <script src="src/constants.js"></script>
   <script src="src/scenes/BootScene.js"></script>
