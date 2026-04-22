@@ -32,7 +32,7 @@ class GameScene extends Phaser.Scene {
   // ─── background ────────────────────────────────────────────────────────────
 
   _drawBackground() {
-    const { WIDTH, PLAY_H, HEIGHT, JOY_ZONE_Y } = C;
+    const { WIDTH, PLAY_H } = C;
     const g = this.add.graphics();
 
     // Platform floor — concrete
@@ -47,10 +47,10 @@ class GameScene extends Phaser.Scene {
     // Side columns
     for (let y = 100; y < PLAY_H - 80; y += 150) {
       g.fillStyle(0x5a5a52);
-      g.fillRect(0,         y, 28, 55);
+      g.fillRect(0,          y, 28, 55);
       g.fillRect(WIDTH - 28, y, 28, 55);
       g.fillStyle(0x888880);
-      g.fillRect(2,         y + 2, 24, 51);
+      g.fillRect(2,          y + 2, 24, 51);
       g.fillRect(WIDTH - 26, y + 2, 24, 51);
     }
 
@@ -67,31 +67,16 @@ class GameScene extends Phaser.Scene {
     // Rail tracks — sleepers then rails, sitting just below train body
     const sleeperY = 66;
     const sleeperH = 18;
-    g.fillStyle(0x4a2e0e);  // dark wood ties
+    g.fillStyle(0x4a2e0e);
     for (let x = 0; x < WIDTH; x += 22) {
       g.fillRect(x + 2, sleeperY, 14, sleeperH);
     }
-    g.fillStyle(0x999990);  // steel rail — top
-    g.fillRect(0, sleeperY + 2, WIDTH, 4);
-    g.fillStyle(0x999990);  // steel rail — bottom
+    g.fillStyle(0x999990);
+    g.fillRect(0, sleeperY + 2,            WIDTH, 4);
     g.fillRect(0, sleeperY + sleeperH - 6, WIDTH, 4);
-    // Rail highlights
     g.fillStyle(0xccccbb, 0.6);
-    g.fillRect(0, sleeperY + 2, WIDTH, 1);
+    g.fillRect(0, sleeperY + 2,            WIDTH, 1);
     g.fillRect(0, sleeperY + sleeperH - 6, WIDTH, 1);
-
-    // Joystick zone
-    g.fillStyle(0x16161a);
-    g.fillRect(0, JOY_ZONE_Y, WIDTH, HEIGHT - JOY_ZONE_Y);
-
-    g.lineStyle(2, 0x3a3a40);
-    g.lineBetween(0, JOY_ZONE_Y, WIDTH, JOY_ZONE_Y);
-
-    this.add.text(WIDTH / 2, JOY_ZONE_Y + 24, 'DRAG HERE TO MOVE', {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '8px',
-      color: '#333338',
-    }).setOrigin(0.5);
   }
 
   // ─── station gates (Point A) ───────────────────────────────────────────────
@@ -287,8 +272,13 @@ class GameScene extends Phaser.Scene {
     const { WIDTH, TIMER_BASE, TIMER_DEC, TIMER_MIN } = C;
     this.timeLeft = Math.max(TIMER_MIN, TIMER_BASE - (this.currentLevel - 1) * TIMER_DEC);
 
-    // "Train leaves in" label — top-left
-    this.add.text(10, 8, 'TRAIN LEAVES IN', {
+    // Dark backing strip between train and play area
+    this.add.graphics().setDepth(9)
+      .fillStyle(0x000000, 0.55)
+      .fillRect(0, 76, WIDTH, 46);
+
+    // "Train leaves in" label
+    this.add.text(10, 82, 'TRAIN LEAVES IN', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '6px',
       color: '#ffaa22',
@@ -296,16 +286,16 @@ class GameScene extends Phaser.Scene {
       strokeThickness: 2,
     }).setDepth(10);
 
-    this.timerText = this.add.text(10, 22, this._fmtTime(this.timeLeft), {
+    this.timerText = this.add.text(10, 96, this._fmtTime(this.timeLeft), {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '20px',
+      fontSize: '18px',
       color: '#ffffff',
       stroke: '#000',
       strokeThickness: 4,
     }).setOrigin(0, 0).setDepth(10);
 
-    // Level — top-right
-    this.add.text(WIDTH - 10, 10, `LEVEL ${this.currentLevel}`, {
+    // Level — top-right of the same strip
+    this.add.text(WIDTH - 10, 88, `LEVEL ${this.currentLevel}`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '11px',
       color: '#eecc44',

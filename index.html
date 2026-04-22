@@ -208,7 +208,6 @@
       if (!_joyGameActive() || _joyTouchId !== null) return;
       var t = e.changedTouches[0];
       var p = _joyToLogical(t.clientX, t.clientY);
-      if (p.y < C.JOY_ZONE_Y) return;
       e.preventDefault();
       _joyTouchId = t.identifier;
       var j = window.RHR_joy;
