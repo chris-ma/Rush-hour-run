@@ -18,6 +18,13 @@ class GameScene extends Phaser.Scene {
   // ─── create ────────────────────────────────────────────────────────────────
 
   create() {
+    // World growth: gates move 2% further every 3 completed levels (capped at y 760)
+    const growths = Math.floor((this.currentLevel - 1) / 3);
+    this.pa = {
+      x: C.PA.x,
+      y: Math.min(760, Math.round(C.PA.y * (1 + growths * 0.02))),
+    };
+
     this._drawBackground();
     this._createGates();
     this._createTrain();
@@ -82,8 +89,9 @@ class GameScene extends Phaser.Scene {
   // ─── station gates (Point A) ───────────────────────────────────────────────
 
   _createGates() {
-    const { PA, WIDTH } = C;
-    const g = this.add.graphics().setDepth(1);
+    const { WIDTH } = C;
+    const PA = this.pa;
+    const g  = this.add.graphics().setDepth(1);
 
     // Barrier beam
     g.fillStyle(0xcccc88);
@@ -196,7 +204,7 @@ class GameScene extends Phaser.Scene {
   // ─── player ────────────────────────────────────────────────────────────────
 
   _createPlayer() {
-    this.player = this.add.image(C.PA.x, C.PA.y, 'player')
+    this.player = this.add.image(this.pa.x, this.pa.y, 'player')
       .setScale(C.SPRITE_SCALE)
       .setDepth(5);
   }
@@ -250,8 +258,9 @@ class GameScene extends Phaser.Scene {
 
   _safeSpawnPos() {
     let x, y, attempts = 0;
-    const { WIDTH, PLAY_H, PA, PB, SPAWN_SAFE_A, SPAWN_SAFE_B, NPC_R, SPRITE_SCALE } = C;
+    const { WIDTH, PLAY_H, PB, SPAWN_SAFE_A, SPAWN_SAFE_B, NPC_R, SPRITE_SCALE } = C;
     const margin = NPC_R * SPRITE_SCALE;
+    const PA     = this.pa;
 
     do {
       x = Phaser.Math.Between(margin + 10, WIDTH - margin - 10);
