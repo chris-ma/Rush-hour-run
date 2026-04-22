@@ -1,3 +1,42 @@
+const RHR_THEMES = [
+  { // 0 — Daytime (levels 1-5)
+    floor: 0x7a7a6e, grid: 0x666660,
+    col: 0x5a5a52,   colFace: 0x888880,
+    sign: 0x1a3a88,
+    safe: 0xeecc44,  edge: 0x222222,
+    train: 0x1a4088, stripe: 0xddbb88,
+    gate: 0xcccc88,  post: 0xaaaaaa, arrow: 0x22ee66,
+    board: '#ffcc44', name: 'WATERLOO',
+  },
+  { // 1 — Evening Rush (levels 6-10)
+    floor: 0x5a3a28, grid: 0x3a2818,
+    col: 0x3a2010,   colFace: 0x664428,
+    sign: 0x881a00,
+    safe: 0xff8800,  edge: 0x331100,
+    train: 0x882211, stripe: 0xcc8844,
+    gate: 0xaa8833,  post: 0xcc9944, arrow: 0xff8822,
+    board: '#ffaa44', name: 'CITY LINE',
+  },
+  { // 2 — Underground (levels 11-15)
+    floor: 0x2a2a44, grid: 0x1a1a38,
+    col: 0x1a1a38,   colFace: 0x334466,
+    sign: 0x0a0a22,
+    safe: 0x3399ff,  edge: 0x0a1122,
+    train: 0x226677, stripe: 0x66aabb,
+    gate: 0x336688,  post: 0x4477aa, arrow: 0x33ccff,
+    board: '#44ccff', name: 'METRO',
+  },
+  { // 3 — Night Service (levels 16+)
+    floor: 0x1a1a28, grid: 0x121218,
+    col: 0x121218,   colFace: 0x2a2244,
+    sign: 0x0a0011,
+    safe: 0xaa44ff,  edge: 0x110022,
+    train: 0x442288, stripe: 0x8855cc,
+    gate: 0x443366,  post: 0x6644aa, arrow: 0xbb66ff,
+    board: '#cc88ff', name: 'NIGHT SVC',
+  },
+];
+
 class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
 
@@ -18,6 +57,9 @@ class GameScene extends Phaser.Scene {
   // ─── create ────────────────────────────────────────────────────────────────
 
   create() {
+    // Theme: changes every 5 levels
+    this.theme = RHR_THEMES[Math.floor((this.currentLevel - 1) / 5) % RHR_THEMES.length];
+
     // World growth: gates move 2% further every 3 completed levels (capped at y 760)
     const growths = Math.floor((this.currentLevel - 1) / 3);
     this.pa = {
@@ -40,35 +82,36 @@ class GameScene extends Phaser.Scene {
 
   _drawBackground() {
     const { WIDTH, PLAY_H } = C;
+    const t = this.theme;
     const g = this.add.graphics();
 
-    // Platform floor — concrete
-    g.fillStyle(0x7a7a6e);
+    // Platform floor
+    g.fillStyle(t.floor);
     g.fillRect(0, 0, WIDTH, PLAY_H);
 
     // Tile grid
-    g.lineStyle(1, 0x666660, 0.5);
+    g.lineStyle(1, t.grid, 0.5);
     for (let x = 0; x <= WIDTH; x += 40)  g.lineBetween(x, 0, x, PLAY_H);
     for (let y = 0; y <= PLAY_H; y += 40) g.lineBetween(0, y, WIDTH, y);
 
     // Side columns
     for (let y = 100; y < PLAY_H - 80; y += 150) {
-      g.fillStyle(0x5a5a52);
+      g.fillStyle(t.col);
       g.fillRect(0,          y, 28, 55);
       g.fillRect(WIDTH - 28, y, 28, 55);
-      g.fillStyle(0x888880);
+      g.fillStyle(t.colFace);
       g.fillRect(2,          y + 2, 24, 51);
       g.fillRect(WIDTH - 26, y + 2, 24, 51);
     }
 
-    // Yellow platform-edge safety stripe (bottom)
-    g.fillStyle(0xeecc44);
+    // Platform-edge safety stripe (bottom)
+    g.fillStyle(t.safe);
     g.fillRect(0, PLAY_H - 20, WIDTH, 8);
-    g.fillStyle(0x222222);
+    g.fillStyle(t.edge);
     g.fillRect(0, PLAY_H - 12, WIDTH, 12);
 
-    // Blue overhead sign strip at very top
-    g.fillStyle(0x1a3a88);
+    // Overhead sign strip at very top
+    g.fillStyle(t.sign);
     g.fillRect(0, 0, WIDTH, 10);
 
     // Rail tracks — sleepers then rails, sitting just below train body
@@ -91,24 +134,25 @@ class GameScene extends Phaser.Scene {
   _createGates() {
     const { WIDTH } = C;
     const PA = this.pa;
+    const t  = this.theme;
     const g  = this.add.graphics().setDepth(1);
 
     // Barrier beam
-    g.fillStyle(0xcccc88);
+    g.fillStyle(t.gate);
     g.fillRect(PA.x - 130, PA.y - 5, 260, 10);
 
     // Posts
-    g.fillStyle(0xaaaaaa);
+    g.fillStyle(t.post);
     [-130, -44, 44, 130].forEach(ox => {
       g.fillRect(PA.x + ox - 5, PA.y - 24, 10, 48);
     });
 
     // Gate opening in centre
-    g.fillStyle(0x333328);
+    g.fillStyle(0x111111);
     g.fillRect(PA.x - 16, PA.y - 5, 32, 10);
 
     // Arrow pointing up (toward train)
-    g.fillStyle(0x22ee66);
+    g.fillStyle(t.arrow);
     g.fillTriangle(PA.x, PA.y - 38, PA.x - 10, PA.y - 28, PA.x + 10, PA.y - 28);
 
     this.add.text(PA.x, PA.y + 26, 'PLATFORM GATES', {
@@ -133,7 +177,7 @@ class GameScene extends Phaser.Scene {
     this.boardText = this.add.text(PB.x, 84, 'BOARD HERE', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
-      color: '#ffcc44',
+      color: this.theme.board,
       stroke: '#000',
       strokeThickness: 3,
     }).setOrigin(0.5);
@@ -151,23 +195,24 @@ class GameScene extends Phaser.Scene {
   }
 
   _drawTrainGraphics(doorOpen) {
-    const { WIDTH, PB } = C;
+    const { WIDTH } = C;
+    const t   = this.theme;
     const g   = this.trainGfx;
     const tx  = 10;
     const ty  = 5;
     const tw  = WIDTH - 20;
     const th  = 70;
     const dw  = 48;
-    const dx  = tx + (tw - dw) / 2;   // door x
+    const dx  = tx + (tw - dw) / 2;
 
     g.clear();
 
     // Train body
-    g.fillStyle(0x1a4088);
+    g.fillStyle(t.train);
     g.fillRect(tx, ty, tw, th);
 
     // Decorative stripe
-    g.fillStyle(0xddbb88);
+    g.fillStyle(t.stripe);
     g.fillRect(tx, ty + 22, tw, 7);
 
     // Windows — left of door
@@ -190,13 +235,18 @@ class GameScene extends Phaser.Scene {
       g.fillStyle(0xffcc44, 0.45);
       g.fillRect(dx, ty + th - 10, dw, 10);
     } else {
-      g.fillStyle(0x163070);
+      // Closed door — darken the train colour by halving each channel
+      const tc  = t.train;
+      const dark = (((tc >> 16 & 0xff) >> 1) << 16) |
+                   (((tc >>  8 & 0xff) >> 1) <<  8) |
+                    ((tc       & 0xff) >> 1);
+      g.fillStyle(dark);
       g.fillRect(dx, ty, dw, th);
-      g.lineStyle(2, 0x2255aa, 1);
+      g.lineStyle(2, t.stripe, 0.6);
       g.lineBetween(dx + dw / 2, ty, dx + dw / 2, ty + th);
     }
 
-    // Train outline
+    // Train outline (slightly darker than body)
     g.lineStyle(2, 0x0a2055, 1);
     g.strokeRect(tx, ty, tw, th);
   }
@@ -304,12 +354,21 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0, 0).setDepth(10);
 
     // Level — top-right of the same strip
-    this.add.text(WIDTH - 10, 88, `LEVEL ${this.currentLevel}`, {
+    this.add.text(WIDTH - 10, 82, `LEVEL ${this.currentLevel}`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '11px',
       color: '#eecc44',
       stroke: '#000',
       strokeThickness: 3,
+    }).setOrigin(1, 0).setDepth(10);
+
+    // Station name — below level, themed colour
+    this.add.text(WIDTH - 10, 100, this.theme.name, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '7px',
+      color: this.theme.board,
+      stroke: '#000',
+      strokeThickness: 2,
     }).setOrigin(1, 0).setDepth(10);
   }
 
